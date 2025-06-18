@@ -7,6 +7,7 @@
 4. Gallant Damas H (5027231037)
 
 ## Struktur Directory
+```
 e-commerce-recommender/
 ├── docker-compose.yml          # File untuk mengatur dan menjalankan semua service dengan Docker
 |
@@ -39,3 +40,4 @@ e-commerce-recommender/
 |       └── app.js              # Logic Javascript untuk fetch data dari API dan menampilkannya
 |
 └── README.md                   # Penjelasan proyek, cara setup, dan cara menjalankan
+```
