@@ -11,7 +11,7 @@
 e-commerce-recommender/
 ├── docker-compose.yml          # File untuk mengatur dan menjalankan semua service dengan Docker
 |
-├── run_project.py        # otomasi untuk running keseluruhan project
+├── run_project.py              # otomasi untuk running keseluruhan project
 |
 ├── data/
 │   └── ecommerce-events.csv    # Dataset mentah Anda
