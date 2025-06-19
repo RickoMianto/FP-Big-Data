@@ -1,12 +1,16 @@
 # FP-BIg-Data
 
 ## Anggota Kelompok 8
-1. Irfan Qobus Salim (50272210xx)
-2. Ricko Mianto J S (5027231031)
-3. Raditya Hardian S (5027231033)
-4. Gallant Damas H (5027231037)
+
+| No  | Nama Lengkap      | NRP        |
+| --- | ----------------- | ---------- |
+| 1   | Irfan Qobus Salim | 5027221058 |
+| 2   | Ricko Mianto J S  | 5027231031 |
+| 3   | Raditya Hardian S | 5027231033 |
+| 4   | Gallant Damas H   | 5027231037 |
 
 ## Struktur Directory
+
 ```
 e-commerce-recommender/
 ├── docker-compose.yml          # File untuk mengatur dan menjalankan semua service dengan Docker
@@ -14,7 +18,11 @@ e-commerce-recommender/
 ├── run_project.py              # otomasi untuk running keseluruhan project
 |
 ├── data/
-│   └── ecommerce-events.csv    # Dataset mentah Anda
+│   ├── ecommerce-events.csv      # Dataset mentah
+│   └── images/                   # Dataset gambar yang di crawling
+|       ├── accessories_bag/
+|       ├── accessories_umbrella/
+|       └── accessories_wallet/
 |
 ├── kafka_producer/
 │   ├── requirements.txt        # Kebutuhan library (kafka-python)

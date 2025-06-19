@@ -24,7 +24,8 @@ RUN mkdir -p /app/data
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-ENV KAFKA_TOPIC=ecommerce-events
+ENV KAFKA_TOPIC_EVENTS=ecommerce-events
+ENV KAFKA_TOPIC_IMAGES=ecommerce-images
 ENV DATA_FILE=/app/data/ecommerce-events.csv
 
 # Expose port (if needed for health checks)
@@ -35,4 +36,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import kafka; kafka.KafkaProducer(bootstrap_servers='kafka:9092')" || exit 1
 
 # Run the producer
-CMD ["python", "producer.py"]
+# CMD ["python", "producer.py"]
+CMD ["sh", "-c", "python producer.py & python producer_images.py"]

@@ -129,18 +129,25 @@ class ProjectRunner:
         """Menjalankan data pipeline secara berurutan"""
         self.log("Starting data pipeline...")
         
-        # Step 1: Start Kafka Producer
-        self.log("Step 1: Running Kafka Producer...")
-        producer_process = self.run_command(
-            "python3 kafka_producer/producer.py", 
+        # Step 1: Start Structured Data Producer
+        self.log("Step 1a: Running Structured Kafka Producer (ecommerce-events)...")
+        producer_a = self.run_command(
+            "python3 kafka_producer/producer.py",
             background=True
         )
-        
-        if not producer_process:
-            self.log("Failed to start Kafka Producer", "ERROR")
+
+        # Step 1b: Start Unstructured Image Producer
+        self.log("Step 1b: Running Image Kafka Producer (ecommerce-images)...")
+        producer_b = self.run_command(
+            "python3 kafka_producer/producer_images.py",
+            background=True
+        )
+
+        if not (producer_a and producer_b):
+            self.log("Failed to start one of the Kafka Producers", "ERROR")
             return False
-            
-        # Wait a bit for producer to start sending data
+
+        self.log("Both producers are running in background.")
         time.sleep(10)
         
         # Step 2: Run Spark Jobs
