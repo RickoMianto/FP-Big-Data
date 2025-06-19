@@ -76,7 +76,7 @@ class ProjectRunner:
                 return False
                 
         # Check dataset
-        dataset_path = self.project_root / 'data' / 'ecommerce-events.csv'
+        dataset_path = self.project_root / 'data' / 'ecommerce-behavior-data.csv'
         if not dataset_path.exists():
             self.log("Dataset ecommerce-events.csv tidak ditemukan di folder data/", "ERROR")
             return False
