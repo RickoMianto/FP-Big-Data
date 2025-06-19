@@ -1,0 +1,8 @@
+Flask==2.3.3
+Flask-CORS==4.0.0
+pandas==2.0.3
+minio==7.1.17
+pyarrow==13.0.0
+fastparquet==0.8.3
+python-dotenv==1.0.0
+gunicorn==21.2.0
