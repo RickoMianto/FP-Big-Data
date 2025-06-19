@@ -132,7 +132,7 @@ class ProjectRunner:
         # Step 1: Start Kafka Producer
         self.log("Step 1: Running Kafka Producer...")
         producer_process = self.run_command(
-            "python kafka_producer/producer.py", 
+            "python3 kafka_producer/producer.py", 
             background=True
         )
         
@@ -145,14 +145,14 @@ class ProjectRunner:
         
         # Step 2: Run Spark Jobs
         spark_jobs = [
-            'spark_processor/jobs/1_bronze_to_silver.py',
-            'spark_processor/jobs/2_silver_to_gold.py',
-            'spark_processor/jobs/3_train_model.py'
+            'spark_processor/jobs/bronze_to_silver.py',
+            'spark_processor/jobs/silver_to_gold.py',
+            'spark_processor/jobs/train_model.py'
         ]
         
         for i, job in enumerate(spark_jobs, 2):
             self.log(f"Step {i}: Running {job}...")
-            if not self.run_command(f"python {job}"):
+            if not self.run_command(f"python3 {job}"):
                 self.log(f"Failed to run {job}", "ERROR")
                 return False
             time.sleep(5)  # Wait between jobs
@@ -164,7 +164,7 @@ class ProjectRunner:
         self.log("Starting API Server...")
         
         api_process = self.run_command(
-            "python api_server/app.py",
+            "python3 api_server/app.py",
             background=True
         )
         
@@ -181,7 +181,7 @@ class ProjectRunner:
         
         # Simple HTTP server untuk frontend
         frontend_process = self.run_command(
-            "python -m http.server 8080",
+            "python3 -m http.server 8080",
             cwd=self.project_root / 'frontend',
             background=True
         )
@@ -191,7 +191,7 @@ class ProjectRunner:
             return False
             
         return True
-        
+               
     def monitor_services(self):
         """Monitor running services"""
         self.log("=== PROJECT STARTED SUCCESSFULLY ===")
