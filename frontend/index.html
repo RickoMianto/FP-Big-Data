@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Smart Recommendations</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="nav-brand">
+                <i class="fas fa-shopping-bag"></i>
+                <h1>SmartMart</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="#home" class="nav-link active">Beranda</a>
+                <a href="#about" class="nav-link">Tentang</a>
+                <a href="#contact" class="nav-link">Kontak</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h2>Temukan Produk Terbaik</h2>
+                <p>Sistem rekomendasi cerdas yang membantu Anda menemukan produk yang tepat berdasarkan preferensi dan kebutuhan Anda</p>
+            </div>
+            
+            <!-- Search Section -->
+            <div class="search-container">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Cari produk... (contoh: HP, laptop, mouse)" autocomplete="off">
+                    <button id="searchBtn" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="search-suggestions" id="searchSuggestions"></div>
+            </div>
+
+            <!-- Quick Search Tags -->
+            <div class="quick-tags">
+                <span class="tag-label">Pencarian Populer:</span>
+                <button class="quick-tag" data-search="smartphone">Smartphone</button>
+                <button class="quick-tag" data-search="laptop">Laptop</button>
+                <button class="quick-tag" data-search="headphone">Headphone</button>
+                <button class="quick-tag" data-search="mouse">Mouse</button>
+                <button class="quick-tag" data-search="keyboard">Keyboard</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Loading Indicator -->
+    <div class="loading-container" id="loadingContainer">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Mencari rekomendasi terbaik untuk Anda...</p>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <section class="results-section" id="resultsSection">
+        <div class="container">
+            <div class="results-header">
+                <h3 id="resultsTitle">Hasil Pencarian</h3>
+                <div class="results-meta">
+                    <span id="resultsCount">0 produk ditemukan</span>
+                    <div class="sort-options">
+                        <select id="sortSelect">
+                            <option value="relevance">Paling Relevan</option>
+                            <option value="price_low">Harga Terendah</option>
+                            <option value="price_high">Harga Tertinggi</option>
+                            <option value="rating">Rating Tertinggi</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="products-grid" id="productsGrid">
+                <!-- Products will be dynamically inserted here -->
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <!-- Pagination buttons will be inserted here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Error Message -->
+    <div class="error-container" id="errorContainer">
+        <div class="error-content">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Oops! Terjadi Kesalahan</h3>
+            <p id="errorMessage">Tidak dapat memuat data. Silakan coba lagi nanti.</p>
+            <button id="retryBtn" class="retry-btn">Coba Lagi</button>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+        <div class="empty-content">
+            <i class="fas fa-search"></i>
+            <h3>Tidak Ada Hasil</h3>
+            <p>Maaf, tidak ada produk yang ditemukan untuk pencarian "<span id="emptySearchTerm"></span>"</p>
+            <p>Coba gunakan kata kunci yang berbeda atau lebih umum</p>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="modal-body" id="modalBody">
+                <!-- Product details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>SmartMart</h4>
+                    <p>Sistem rekomendasi e-commerce yang menggunakan teknologi Big Data dan Machine Learning untuk memberikan pengalaman berbelanja terbaik.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Teknologi</h4>
+                    <ul>
+                        <li>Apache Kafka</li>
+                        <li>Apache Spark</li>
+                        <li>Data Lakehouse</li>
+                        <li>Machine Learning</li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Kontak</h4>
+                    <ul>
+                        <li><i class="fas fa-envelope"></i> info@smartmart.com</li>
+                        <li><i class="fas fa-phone"></i> +62 123 4567 890</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Surabaya, Indonesia</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SmartMart. Dibuat untuk tugas Big Data - Data Lakehouse.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
