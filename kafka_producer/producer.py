@@ -161,7 +161,7 @@ class EcommerceDataProducer:
 def main():
     # Configuration
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    csv_file = '/app/data/ecommerce-events.csv'
+    csv_file = '/data/ecommerce-behavior-data.csv'
     
     # Create producer
     producer = EcommerceDataProducer(kafka_servers=kafka_servers)

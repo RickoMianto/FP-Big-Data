@@ -32,7 +32,7 @@ class BronzeToSilverProcessor:
             logger.error(f"Failed to initialize Spark: {e}")
             raise
     
-    def read_from_kafka(self, kafka_servers="kafka:29092", topic="ecommerce-events"):
+    def read_from_kafka(self, kafka_servers='localhost:9092',topic="ecommerce-events"):
         """Read streaming data from Kafka"""
         try:
             logger.info(f"Reading from Kafka topic: {topic}")
@@ -193,7 +193,7 @@ class BronzeToSilverProcessor:
             silver_df = self.clean_and_transform(kafka_df)
             
             # Write to Silver layer (uncomment for production)
-            # query = self.write_to_silver(silver_df)
+            query = self.write_to_silver(silver_df)
             
             # Write to console for debugging
             query = self.write_to_console(silver_df)

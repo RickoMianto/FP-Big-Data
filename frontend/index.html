@@ -1,160 +1,166 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Commerce Smart Recommendations</title>
+    <title>E-Commerce Product Recommender</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <!-- Header -->
     <header class="header">
         <div class="container">
-            <div class="nav-brand">
-                <i class="fas fa-shopping-bag"></i>
-                <h1>SmartMart</h1>
+            <div class="logo">
+                <h1><i class="fas fa-shopping-cart"></i> ShopRecommend</h1>
             </div>
-            <nav class="nav-menu">
-                <a href="#home" class="nav-link active">Beranda</a>
-                <a href="#about" class="nav-link">Tentang</a>
-                <a href="#contact" class="nav-link">Kontak</a>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#home" class="nav-link active">Home</a></li>
+                    <li><a href="#products" class="nav-link">Products</a></li>
+                    <li><a href="#analytics" class="nav-link">Analytics</a></li>
+                </ul>
             </nav>
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div class="hero-content">
-            <div class="hero-text">
-                <h2>Temukan Produk Terbaik</h2>
-                <p>Sistem rekomendasi cerdas yang membantu Anda menemukan produk yang tepat berdasarkan preferensi dan kebutuhan Anda</p>
-            </div>
-            
-            <!-- Search Section -->
-            <div class="search-container">
-                <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Cari produk... (contoh: HP, laptop, mouse)" autocomplete="off">
-                    <button id="searchBtn" class="search-btn">
-                        <i class="fas fa-search"></i>
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero Section -->
+        <section id="home" class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h2>AI-Powered Product Recommendations</h2>
+                    <p>Discover products tailored to your preferences using advanced big data analytics</p>
+                    <button class="cta-button" onclick="scrollToSection('products')">
+                        Explore Products <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
-                <div class="search-suggestions" id="searchSuggestions"></div>
             </div>
+        </section>
 
-            <!-- Quick Search Tags -->
-            <div class="quick-tags">
-                <span class="tag-label">Pencarian Populer:</span>
-                <button class="quick-tag" data-search="smartphone">Smartphone</button>
-                <button class="quick-tag" data-search="laptop">Laptop</button>
-                <button class="quick-tag" data-search="headphone">Headphone</button>
-                <button class="quick-tag" data-search="mouse">Mouse</button>
-                <button class="quick-tag" data-search="keyboard">Keyboard</button>
-            </div>
-        </div>
-    </section>
+        <!-- Search and Filter Section -->
+        <section id="products" class="products-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Product Search & Recommendations</h2>
+                    <p>Find products with AI-powered insights</p>
+                </div>
 
-    <!-- Loading Indicator -->
-    <div class="loading-container" id="loadingContainer">
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p>Mencari rekomendasi terbaik untuk Anda...</p>
-        </div>
-    </div>
-
-    <!-- Results Section -->
-    <section class="results-section" id="resultsSection">
-        <div class="container">
-            <div class="results-header">
-                <h3 id="resultsTitle">Hasil Pencarian</h3>
-                <div class="results-meta">
-                    <span id="resultsCount">0 produk ditemukan</span>
-                    <div class="sort-options">
-                        <select id="sortSelect">
-                            <option value="relevance">Paling Relevan</option>
-                            <option value="price_low">Harga Terendah</option>
-                            <option value="price_high">Harga Tertinggi</option>
-                            <option value="rating">Rating Tertinggi</option>
+                <!-- Search and Filter Controls -->
+                <div class="search-controls">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Search products by name or category...">
+                        <button id="searchBtn" class="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="filters">
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select id="brandFilter" class="filter-select">
+                            <option value="">All Brands</option>
+                        </select>
+                        <select id="priceFilter" class="filter-select">
+                            <option value="">Price Range</option>
+                            <option value="0-100">$0 - $100</option>
+                            <option value="100-500">$100 - $500</option>
+                            <option value="500-1000">$500 - $1000</option>
+                            <option value="1000+">$1000+</option>
                         </select>
                     </div>
                 </div>
-            </div>
-            
-            <div class="products-grid" id="productsGrid">
-                <!-- Products will be dynamically inserted here -->
-            </div>
 
-            <!-- Pagination -->
-            <div class="pagination" id="pagination">
-                <!-- Pagination buttons will be inserted here -->
+                <!-- Loading Spinner -->
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Loading products...</p>
+                </div>
+
+                <!-- Products Grid -->
+                <div id="productsGrid" class="products-grid">
+                    <!-- Products will be dynamically inserted here -->
+                </div>
+
+                <!-- Pagination -->
+                <div id="pagination" class="pagination hidden">
+                    <button id="prevBtn" class="pagination-btn">Previous</button>
+                    <span id="pageInfo" class="page-info">Page 1 of 1</span>
+                    <button id="nextBtn" class="pagination-btn">Next</button>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Error Message -->
-    <div class="error-container" id="errorContainer">
-        <div class="error-content">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3>Oops! Terjadi Kesalahan</h3>
-            <p id="errorMessage">Tidak dapat memuat data. Silakan coba lagi nanti.</p>
-            <button id="retryBtn" class="retry-btn">Coba Lagi</button>
-        </div>
-    </div>
+        <!-- Analytics Section -->
+        <section id="analytics" class="analytics-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Product Analytics Dashboard</h2>
+                    <p>Real-time insights from user behavior data</p>
+                </div>
 
-    <!-- Empty State -->
-    <div class="empty-state" id="emptyState">
-        <div class="empty-content">
-            <i class="fas fa-search"></i>
-            <h3>Tidak Ada Hasil</h3>
-            <p>Maaf, tidak ada produk yang ditemukan untuk pencarian "<span id="emptySearchTerm"></span>"</p>
-            <p>Coba gunakan kata kunci yang berbeda atau lebih umum</p>
-        </div>
-    </div>
+                <div class="analytics-grid">
+                    <!-- Most Viewed Products -->
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-eye"></i> Most Viewed Products</h3>
+                            <button class="refresh-btn" onclick="loadTopProducts('view')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="topViewed" class="top-products-list">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
 
-    <!-- Product Modal -->
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal-content">
-            <button class="modal-close" id="modalClose">
-                <i class="fas fa-times"></i>
-            </button>
-            <div class="modal-body" id="modalBody">
-                <!-- Product details will be inserted here -->
+                    <!-- Most Added to Cart -->
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-shopping-cart"></i> Most Added to Cart</h3>
+                            <button class="refresh-btn" onclick="loadTopProducts('cart')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="topCart" class="top-products-list">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Most Purchased -->
+                    <div class="analytics-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-credit-card"></i> Most Purchased</h3>
+                            <button class="refresh-btn" onclick="loadTopProducts('purchase')">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="topPurchased" class="top-products-list">
+                            <!-- Will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h4>SmartMart</h4>
-                    <p>Sistem rekomendasi e-commerce yang menggunakan teknologi Big Data dan Machine Learning untuk memberikan pengalaman berbelanja terbaik.</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Teknologi</h4>
-                    <ul>
-                        <li>Apache Kafka</li>
-                        <li>Apache Spark</li>
-                        <li>Data Lakehouse</li>
-                        <li>Machine Learning</li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h4>Kontak</h4>
-                    <ul>
-                        <li><i class="fas fa-envelope"></i> info@smartmart.com</li>
-                        <li><i class="fas fa-phone"></i> +62 123 4567 890</li>
-                        <li><i class="fas fa-map-marker-alt"></i> Surabaya, Indonesia</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 SmartMart. Dibuat untuk tugas Big Data - Data Lakehouse.</p>
-            </div>
+            <p>&copy; 2025 E-Commerce Recommender. Built with Big Data Analytics.</p>
         </div>
     </footer>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody">
+                <!-- Product details will be inserted here -->
+            </div>
+        </div>
+    </div>
 
     <script src="js/app.js"></script>
 </body>

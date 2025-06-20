@@ -1,368 +1,183 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pandas as pd
-import json
-import logging
-from minio_client import MinIOClient
-from datetime import datetime
 import os
+import pandas as pd
+from minio import Minio
+from minio.error import S3Error
+import io
+import logging
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend
-
-# Initialize MinIO client
-minio_client = MinIOClient()
-
-class EcommerceAPI:
+class MinIOClient:
     def __init__(self):
-        self.minio_client = minio_client
-        self.cache = {}
-        self.cache_timeout = 300  # 5 minutes
+        self.client = None
+        self.setup_client()
     
-    def get_cached_data(self, key):
-        """Get data from cache if valid"""
-        if key in self.cache:
-            data, timestamp = self.cache[key]
-            if (datetime.now() - timestamp).seconds < self.cache_timeout:
-                return data
-        return None
-    
-    def set_cached_data(self, key, data):
-        """Set data in cache"""
-        self.cache[key] = (data, datetime.now())
-    
-    def load_parquet_data(self, bucket, object_name):
-        """Load parquet data from MinIO"""
+    def setup_client(self):
+        """Initialize MinIO client"""
         try:
-            # Check cache first
-            cache_key = f"{bucket}/{object_name}"
-            cached_data = self.get_cached_data(cache_key)
-            if cached_data is not None:
-                return cached_data
+            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+            minio_access_key = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+            minio_secret_key = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+            minio_secure = os.getenv('MINIO_SECURE', 'False').lower() == 'true'
             
-            # Load from MinIO
-            data = self.minio_client.read_parquet(bucket, object_name)
+            self.client = Minio(
+                minio_endpoint,
+                access_key=minio_access_key,
+                secret_key=minio_secret_key,
+                secure=minio_secure
+            )
             
-            # Cache the data
-            self.set_cached_data(cache_key, data)
-            
-            return data
+            logger.info(f"MinIO client initialized for endpoint: {minio_endpoint}")
             
         except Exception as e:
-            logger.error(f"Error loading data from {bucket}/{object_name}: {e}")
-            return None
+            logger.error(f"Failed to initialize MinIO client: {e}")
+            raise
     
-    def get_product_statistics(self):
-        """Get product statistics from Gold layer"""
+    def bucket_exists(self, bucket_name):
+        """Check if bucket exists"""
         try:
-            data = self.load_parquet_data("gold", "product_statistics")
-            if data is not None:
-                return data.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting product statistics: {e}")
-            return []
+            return self.client.bucket_exists(bucket_name)
+        except S3Error as e:
+            logger.error(f"Error checking bucket {bucket_name}: {e}")
+            return False
     
-    def get_top_products(self, metric="most_viewed", limit=10):
-        """Get top products by specific metric"""
+    def create_bucket(self, bucket_name):
+        """Create bucket if it doesn't exist"""
         try:
-            data = self.load_parquet_data("gold", "product_rankings")
-            if data is not None:
-                filtered_data = data[data['rank_type'] == metric].head(limit)
-                return filtered_data.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting top products: {e}")
-            return []
+            if not self.bucket_exists(bucket_name):
+                self.client.make_bucket(bucket_name)
+                logger.info(f"Created bucket: {bucket_name}")
+            else:
+                logger.info(f"Bucket {bucket_name} already exists")
+        except S3Error as e:
+            logger.error(f"Error creating bucket {bucket_name}: {e}")
+            raise
     
-    def search_products(self, query, filters=None, limit=20):
-        """Search products with optional filters"""
+    def list_objects(self, bucket_name, prefix=""):
+        """List objects in bucket with optional prefix"""
         try:
-            data = self.load_parquet_data("gold", "recommendation_features")
-            if data is None:
-                return []
-            
-            # Apply text search
-            if query:
-                query_lower = query.lower()
-                mask = (
-                    data['category_code'].str.contains(query_lower, na=False) |
-                    data['brand'].str.contains(query_lower, na=False)
-                )
-                data = data[mask]
-            
-            # Apply filters
-            if filters:
-                if 'category' in filters and filters['category']:
-                    data = data[data['category_code'].str.contains(filters['category'], na=False)]
-                
-                if 'brand' in filters and filters['brand']:
-                    data = data[data['brand'].str.contains(filters['brand'], na=False)]
-                
-                if 'price_min' in filters and filters['price_min']:
-                    data = data[data['avg_price'] >= float(filters['price_min'])]
-                
-                if 'price_max' in filters and filters['price_max']:
-                    data = data[data['avg_price'] <= float(filters['price_max'])]
-                
-                if 'price_tier' in filters and filters['price_tier']:
-                    data = data[data['price_tier'] == filters['price_tier']]
-            
-            # Sort by popularity score
-            data = data.sort_values('popularity_score', ascending=False)
-            
-            return data.head(limit).to_dict('records')
-            
-        except Exception as e:
-            logger.error(f"Error searching products: {e}")
+            objects = self.client.list_objects(bucket_name, prefix=prefix, recursive=True)
+            return [obj.object_name for obj in objects]
+        except S3Error as e:
+            logger.error(f"Error listing objects in {bucket_name}: {e}")
             return []
     
-    def get_product_details(self, product_id):
-        """Get detailed information about a specific product"""
+    def read_parquet(self, bucket_name, object_name):
+        """Read parquet file from MinIO and return pandas DataFrame"""
         try:
-            data = self.load_parquet_data("gold", "product_statistics")
-            if data is not None:
-                product = data[data['product_id'] == product_id]
-                if not product.empty:
-                    return product.iloc[0].to_dict()
+            # Get object from MinIO
+            response = self.client.get_object(bucket_name, object_name)
+            
+            # Read parquet data
+            parquet_data = response.read()
+            
+            # Convert to pandas DataFrame
+            df = pd.read_parquet(io.BytesIO(parquet_data))
+            
+            response.close()
+            response.release_conn()
+            
+            logger.info(f"Successfully read {len(df)} records from {bucket_name}/{object_name}")
+            return df
+            
+        except S3Error as e:
+            logger.error(f"Error reading parquet from {bucket_name}/{object_name}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Error getting product details: {e}")
+            logger.error(f"Error processing parquet data: {e}")
             return None
     
-    def get_similar_products(self, product_id, limit=5):
-        """Get similar products for a given product"""
+    def write_parquet(self, df, bucket_name, object_name):
+        """Write pandas DataFrame to MinIO as parquet file"""
         try:
-            data = self.load_parquet_data("gold", "similar_products")
-            if data is not None:
-                similar = data[data['product_id'] == product_id].sort_values('similarity_score', ascending=False)
-                return similar.head(limit).to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting similar products: {e}")
-            return []
-    
-    def get_recommendations_for_user(self, user_id, limit=10):
-        """Get recommendations for a specific user"""
-        try:
-            data = self.load_parquet_data("gold", "user_recommendations")
-            if data is not None:
-                user_recs = data[data['user'] == int(user_id)]
-                if not user_recs.empty:
-                    return user_recs.head(limit).to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting user recommendations: {e}")
-            return []
-    
-    def get_category_statistics(self):
-        """Get category-level statistics"""
-        try:
-            data = self.load_parquet_data("gold", "category_statistics")
-            if data is not None:
-                return data.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting category statistics: {e}")
-            return []
-    
-    def get_brand_statistics(self):
-        """Get brand-level statistics"""
-        try:
-            data = self.load_parquet_data("gold", "brand_statistics")
-            if data is not None:
-                return data.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"Error getting brand statistics: {e}")
-            return []
-
-# Initialize API instance
-api = EcommerceAPI()
-
-# API Routes
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
-
-@app.route('/api/products/search', methods=['GET'])
-def search_products():
-    """Search products with filters"""
-    try:
-        query = request.args.get('q', '')
-        limit = int(request.args.get('limit', 20))
-        
-        # Parse filters
-        filters = {}
-        if request.args.get('category'):
-            filters['category'] = request.args.get('category')
-        if request.args.get('brand'):
-            filters['brand'] = request.args.get('brand')
-        if request.args.get('price_min'):
-            filters['price_min'] = request.args.get('price_min')
-        if request.args.get('price_max'):
-            filters['price_max'] = request.args.get('price_max')
-        if request.args.get('price_tier'):
-            filters['price_tier'] = request.args.get('price_tier')
-        
-        results = api.search_products(query, filters, limit)
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results),
-            "query": query,
-            "filters": filters
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in search endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/products/top', methods=['GET'])
-def get_top_products():
-    """Get top products by metric"""
-    try:
-        metric = request.args.get('metric', 'most_viewed')
-        limit = int(request.args.get('limit', 10))
-        
-        valid_metrics = ['most_viewed', 'most_carted', 'most_purchased', 'most_popular']
-        if metric not in valid_metrics:
-            return jsonify({"success": False, "error": "Invalid metric"}), 400
-        
-        results = api.get_top_products(metric, limit)
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results),
-            "metric": metric
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in top products endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/products/<product_id>', methods=['GET'])
-def get_product_details(product_id):
-    """Get detailed product information"""
-    try:
-        product = api.get_product_details(product_id)
-        
-        if product:
-            return jsonify({
-                "success": True,
-                "data": product
-            })
-        else:
-            return jsonify({"success": False, "error": "Product not found"}), 404
+            # Convert DataFrame to parquet bytes
+            parquet_buffer = io.BytesIO()
+            df.to_parquet(parquet_buffer, index=False, compression='snappy')
+            parquet_data = parquet_buffer.getvalue()
             
-    except Exception as e:
-        logger.error(f"Error in product details endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/products/<product_id>/similar', methods=['GET'])
-def get_similar_products(product_id):
-    """Get similar products"""
-    try:
-        limit = int(request.args.get('limit', 5))
-        results = api.get_similar_products(product_id, limit)
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results),
-            "product_id": product_id
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in similar products endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/recommendations/<user_id>', methods=['GET'])
-def get_user_recommendations(user_id):
-    """Get recommendations for a user"""
-    try:
-        limit = int(request.args.get('limit', 10))
-        results = api.get_recommendations_for_user(user_id, limit)
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results),
-            "user_id": user_id
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in recommendations endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/stats/categories', methods=['GET'])
-def get_categories():
-    """Get category statistics"""
-    try:
-        results = api.get_category_statistics()
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in categories endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/stats/brands', methods=['GET'])
-def get_brands():
-    """Get brand statistics"""
-    try:
-        results = api.get_brand_statistics()
-        
-        return jsonify({
-            "success": True,
-            "data": results,
-            "count": len(results)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in brands endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/dashboard/overview', methods=['GET'])
-def get_dashboard_overview():
-    """Get overview data for dashboard"""
-    try:
-        # Get top products for each category
-        top_viewed = api.get_top_products('most_viewed', 5)
-        top_carted = api.get_top_products('most_carted', 5)
-        top_purchased = api.get_top_products('most_purchased', 5)
-        
-        # Get category and brand stats
-        categories = api.get_category_statistics()
-        brands = api.get_brand_statistics()
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "top_viewed": top_viewed,
-                "top_carted": top_carted,
-                "top_purchased": top_purchased,
-                "total_categories": len(categories),
-                "total_brands": len(brands),
-                "categories": categories[:10],  # Top 10 categories
-                "brands": brands[:10]  # Top 10 brands
+            # Upload to MinIO
+            self.client.put_object(
+                bucket_name,
+                object_name,
+                io.BytesIO(parquet_data),
+                length=len(parquet_data),
+                content_type='application/octet-stream'
+            )
+            
+            logger.info(f"Successfully wrote {len(df)} records to {bucket_name}/{object_name}")
+            
+        except S3Error as e:
+            logger.error(f"Error writing parquet to {bucket_name}/{object_name}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error processing DataFrame for upload: {e}")
+            raise
+    
+    def read_csv(self, bucket_name, object_name):
+        """Read CSV file from MinIO and return pandas DataFrame"""
+        try:
+            response = self.client.get_object(bucket_name, object_name)
+            csv_data = response.read()
+            
+            df = pd.read_csv(io.BytesIO(csv_data))
+            
+            response.close()
+            response.release_conn()
+            
+            logger.info(f"Successfully read {len(df)} records from {bucket_name}/{object_name}")
+            return df
+            
+        except S3Error as e:
+            logger.error(f"Error reading CSV from {bucket_name}/{object_name}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error processing CSV data: {e}")
+            return None
+    
+    def write_csv(self, df, bucket_name, object_name):
+        """Write pandas DataFrame to MinIO as CSV file"""
+        try:
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False)
+            csv_data = csv_buffer.getvalue().encode('utf-8')
+            
+            self.client.put_object(
+                bucket_name,
+                object_name,
+                io.BytesIO(csv_data),
+                length=len(csv_data),
+                content_type='text/csv'
+            )
+            
+            logger.info(f"Successfully wrote {len(df)} records to {bucket_name}/{object_name}")
+            
+        except S3Error as e:
+            logger.error(f"Error writing CSV to {bucket_name}/{object_name}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error processing DataFrame for CSV upload: {e}")
+            raise
+    
+    def delete_object(self, bucket_name, object_name):
+        """Delete object from MinIO"""
+        try:
+            self.client.remove_object(bucket_name, object_name)
+            logger.info(f"Deleted object: {bucket_name}/{object_name}")
+        except S3Error as e:
+            logger.error(f"Error deleting object {bucket_name}/{object_name}: {e}")
+            raise
+    
+    def get_object_info(self, bucket_name, object_name):
+        """Get object information"""
+        try:
+            stat = self.client.stat_object(bucket_name, object_name)
+            return {
+                'size': stat.size,
+                'last_modified': stat.last_modified,
+                'content_type': stat.content_type,
+                'etag': stat.etag
             }
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in dashboard overview endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        except S3Error as e:
+            logger.error(f"Error getting object info for {bucket_name}/{object_name}: {e}")
+            return None

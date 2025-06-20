@@ -1,765 +1,608 @@
-// Configuration
-const CONFIG = {
-    API_BASE_URL: 'http://localhost:5000/api', // Sesuaikan dengan Flask API server
-    ITEMS_PER_PAGE: 12,
-    DEBOUNCE_DELAY: 300,
-    MAX_SUGGESTIONS: 5
-};
+// API Configuration
+const API_BASE_URL = 'http://localhost:5000/api';
 
-// Global state
+// Global State
 let currentPage = 1;
-let currentQuery = '';
-let currentSort = 'relevance';
-let searchHistory = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-let currentProducts = [];
-let totalPages = 1;
+let itemsPerPage = 12;
+let currentFilters = {
+    search: '',
+    category: '',
+    brand: '',
+    priceRange: ''
+};
+let allProducts = [];
+let filteredProducts = [];
 
 // DOM Elements
-const elements = {
-    searchInput: document.getElementById('searchInput'),
-    searchBtn: document.getElementById('searchBtn'),
-    searchSuggestions: document.getElementById('searchSuggestions'),
-    quickTags: document.querySelectorAll('.quick-tag'),
-    loadingContainer: document.getElementById('loadingContainer'),
-    resultsSection: document.getElementById('resultsSection'),
-    errorContainer: document.getElementById('errorContainer'),
-    emptyState: document.getElementById('emptyState'),
-    resultsTitle: document.getElementById('resultsTitle'),
-    resultsCount: document.getElementById('resultsCount'),
-    productsGrid: document.getElementById('productsGrid'),
-    pagination: document.getElementById('pagination'),
-    sortSelect: document.getElementById('sortSelect'),
-    modalOverlay: document.getElementById('modalOverlay'),
-    modalBody: document.getElementById('modalBody'),
-    modalClose: document.getElementById('modalClose'),
-    retryBtn: document.getElementById('retryBtn'),
-    errorMessage: document.getElementById('errorMessage'),
-    emptySearchTerm: document.getElementById('emptySearchTerm')
-};
-
-// Utility Functions
-const utils = {
-    debounce: (func, delay) => {
-        let timeoutId;
-        return (...args) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func.apply(null, args), delay);
-        };
-    },
-
-    formatPrice: (price) => {
-        if (typeof price !== 'number') return 'Rp 0';
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(price);
-    },
-
-    formatNumber: (num) => {
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return num.toString();
-    },
-
-    generateStars: (rating) => {
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-        let starsHTML = '';
-        
-        for (let i = 0; i < fullStars; i++) {
-            starsHTML += '<i class="fas fa-star star"></i>';
-        }
-        
-        if (hasHalfStar) {
-            starsHTML += '<i class="fas fa-star-half-alt star"></i>';
-        }
-        
-        const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-        for (let i = 0; i < emptyStars; i++) {
-            starsHTML += '<i class="far fa-star star"></i>';
-        }
-        
-        return starsHTML;
-    },
-
-    sanitizeHTML: (str) => {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    },
-
-    showNotification: (message, type = 'info') => {
-        // Simple notification system
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 2rem;
-            background: ${type === 'error' ? '#f56565' : '#667eea'};
-            color: white;
-            border-radius: 8px;
-            z-index: 9999;
-            opacity: 0;
-            transform: translateX(100px);
-            transition: all 0.3s ease;
-        `;
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-        
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100px)';
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    }
-};
-
-// API Functions
-const api = {
-    async search(query, page = 1, sort = 'relevance') {
-        try {
-            const params = new URLSearchParams({
-                q: query,
-                page: page,
-                per_page: CONFIG.ITEMS_PER_PAGE,
-                sort: sort
-            });
-
-            const response = await fetch(`${CONFIG.API_BASE_URL}/search?${params}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Search API error:', error);
-            throw error;
-        }
-    },
-
-    async getRecommendations(productId) {
-        try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}/recommendations/${productId}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Recommendations API error:', error);
-            throw error;
-        }
-    },
-
-    async getSuggestions(query) {
-        try {
-            const params = new URLSearchParams({
-                q: query,
-                limit: CONFIG.MAX_SUGGESTIONS
-            });
-
-            const response = await fetch(`${CONFIG.API_BASE_URL}/suggestions?${params}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Suggestions API error:', error);
-            return { suggestions: [] };
-        }
-    },
-
-    async getProductDetails(productId) {
-        try {
-            const response = await fetch(`${CONFIG.API_BASE_URL}/product/${productId}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return data;
-        } catch (error) {
-            console.error('Product details API error:', error);
-            throw error;
-        }
-    }
-};
-
-// UI State Management
-const ui = {
-    showLoading() {
-        elements.loadingContainer.style.display = 'flex';
-        elements.resultsSection.style.display = 'none';
-        elements.errorContainer.style.display = 'none';
-        elements.emptyState.style.display = 'none';
-    },
-
-    hideLoading() {
-        elements.loadingContainer.style.display = 'none';
-    },
-
-    showResults() {
-        this.hideLoading();
-        elements.resultsSection.style.display = 'block';
-        elements.errorContainer.style.display = 'none';
-        elements.emptyState.style.display = 'none';
-    },
-
-    showError(message) {
-        this.hideLoading();
-        elements.resultsSection.style.display = 'none';
-        elements.errorContainer.style.display = 'block';
-        elements.emptyState.style.display = 'none';
-        elements.errorMessage.textContent = message;
-    },
-
-    showEmpty(searchTerm) {
-        this.hideLoading();
-        elements.resultsSection.style.display = 'none';
-        elements.errorContainer.style.display = 'none';
-        elements.emptyState.style.display = 'block';
-        elements.emptySearchTerm.textContent = searchTerm;
-    },
-
-    updateResultsHeader(query, count, page, totalPages) {
-        elements.resultsTitle.textContent = `Hasil Pencarian: "${query}"`;
-        const start = (page - 1) * CONFIG.ITEMS_PER_PAGE + 1;
-        const end = Math.min(page * CONFIG.ITEMS_PER_PAGE, count);
-        elements.resultsCount.textContent = `Menampilkan ${start}-${end} dari ${count} produk`;
-    },
-
-    renderProducts(products) {
-        const grid = elements.productsGrid;
-        grid.innerHTML = '';
-
-        products.forEach((product, index) => {
-            const productCard = this.createProductCard(product);
-            productCard.style.animationDelay = `${index * 0.1}s`;
-            productCard.classList.add('fade-in');
-            grid.appendChild(productCard);
-        });
-    },
-
-    createProductCard(product) {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.setAttribute('data-product-id', product.id || product.product_id || '');
-
-        // Generate mock data if not provided
-        const price = product.price || Math.floor(Math.random() * 1000000) + 50000;
-        const rating = product.rating || (Math.random() * 2 + 3); // Rating 3-5
-        const reviewCount = product.review_count || Math.floor(Math.random() * 500) + 10;
-        const category = product.category || product.category_code || 'Elektronik';
-        const imageUrl = product.image_url || null;
-
-        card.innerHTML = `
-            <div class="product-image">
-                ${imageUrl ? 
-                    `<img src="${imageUrl}" alt="${utils.sanitizeHTML(product.brand || product.product_name || 'Product')}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                     <div class="placeholder-icon" style="display: none;"><i class="fas fa-shopping-bag"></i></div>` :
-                    `<div class="placeholder-icon"><i class="fas fa-shopping-bag"></i></div>`
-                }
-            </div>
-            <div class="product-info">
-                <div class="product-category">${utils.sanitizeHTML(category)}</div>
-                <h3 class="product-title">${utils.sanitizeHTML(product.brand || product.product_name || 'Produk Tanpa Nama')}</h3>
-                <div class="product-price">${utils.formatPrice(price)}</div>
-                <div class="product-rating">
-                    <div class="stars">${utils.generateStars(rating)}</div>
-                    <span class="rating-text">${rating.toFixed(1)} (${utils.formatNumber(reviewCount)})</span>
-                </div>
-                <div class="product-stats">
-                    <span>Event: ${utils.sanitizeHTML(product.event_type || 'view')}</span>
-                    <span>ID: ${utils.sanitizeHTML(product.id || product.product_id || 'N/A')}</span>
-                </div>
-            </div>
-        `;
-
-        card.addEventListener('click', () => this.showProductModal(product));
-        return card;
-    },
-
-    renderPagination(currentPage, totalPages) {
-        const pagination = elements.pagination;
-        pagination.innerHTML = '';
-
-        if (totalPages <= 1) return;
-
-        // Previous button
-        const prevBtn = document.createElement('button');
-        prevBtn.className = 'page-btn';
-        prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i> Sebelumnya';
-        prevBtn.disabled = currentPage === 1;
-        prevBtn.addEventListener('click', () => {
-            if (currentPage > 1) search.performSearch(currentQuery, currentPage - 1, currentSort);
-        });
-        pagination.appendChild(prevBtn);
-
-        // Page numbers
-        const startPage = Math.max(1, currentPage - 2);
-        const endPage = Math.min(totalPages, currentPage + 2);
-
-        if (startPage > 1) {
-            const firstBtn = document.createElement('button');
-            firstBtn.className = 'page-btn';
-            firstBtn.textContent = '1';
-            firstBtn.addEventListener('click', () => search.performSearch(currentQuery, 1, currentSort));
-            pagination.appendChild(firstBtn);
-
-            if (startPage > 2) {
-                const ellipsis = document.createElement('span');
-                ellipsis.textContent = '...';
-                ellipsis.style.padding = '0.75rem';
-                pagination.appendChild(ellipsis);
-            }
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            const pageBtn = document.createElement('button');
-            pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
-            pageBtn.textContent = i;
-            pageBtn.addEventListener('click', () => search.performSearch(currentQuery, i, currentSort));
-            pagination.appendChild(pageBtn);
-        }
-
-        if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-                const ellipsis = document.createElement('span');
-                ellipsis.textContent = '...';
-                ellipsis.style.padding = '0.75rem';
-                pagination.appendChild(ellipsis);
-            }
-
-            const lastBtn = document.createElement('button');
-            lastBtn.className = 'page-btn';
-            lastBtn.textContent = totalPages;
-            lastBtn.addEventListener('click', () => search.performSearch(currentQuery, totalPages, currentSort));
-            pagination.appendChild(lastBtn);
-        }
-
-        // Next button
-        const nextBtn = document.createElement('button');
-        nextBtn.className = 'page-btn';
-        nextBtn.innerHTML = 'Selanjutnya <i class="fas fa-chevron-right"></i>';
-        nextBtn.disabled = currentPage === totalPages;
-        nextBtn.addEventListener('click', () => {
-            if (currentPage < totalPages) search.performSearch(currentQuery, currentPage + 1, currentSort);
-        });
-        pagination.appendChild(nextBtn);
-    },
-
-    async showProductModal(product) {
-        const modal = elements.modalOverlay;
-        const modalBody = elements.modalBody;
-
-        // Show loading in modal
-        modalBody.innerHTML = '<div class="text-center"><div class="spinner"></div><p>Memuat detail produk...</p></div>';
-        modal.style.display = 'flex';
-
-        try {
-            // Try to get detailed product info
-            let productDetails = product;
-            if (product.id || product.product_id) {
-                try {
-                    const details = await api.getProductDetails(product.id || product.product_id);
-                    productDetails = { ...product, ...details };
-                } catch (error) {
-                    console.warn('Could not fetch product details:', error);
-                }
-            }
-
-            // Get recommendations
-            let recommendations = [];
-            if (product.id || product.product_id) {
-                try {
-                    const recData = await api.getRecommendations(product.id || product.product_id);
-                    recommendations = recData.recommendations || [];
-                } catch (error) {
-                    console.warn('Could not fetch recommendations:', error);
-                }
-            }
-
-            this.renderProductModal(productDetails, recommendations);
-        } catch (error) {
-            modalBody.innerHTML = `
-                <div class="text-center">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ff6b6b; margin-bottom: 1rem;"></i>
-                    <h3>Gagal Memuat Detail</h3>
-                    <p>Tidak dapat memuat detail produk. Silakan coba lagi.</p>
-                </div>
-            `;
-        }
-    },
-
-    renderProductModal(product, recommendations = []) {
-        const modalBody = elements.modalBody;
-        const price = product.price || Math.floor(Math.random() * 1000000) + 50000;
-        const rating = product.rating || (Math.random() * 2 + 3);
-        const reviewCount = product.review_count || Math.floor(Math.random() * 500) + 10;
-
-        modalBody.innerHTML = `
-            <div class="modal-product-details">
-                <div class="modal-product-header">
-                    <div class="modal-product-image">
-                        ${product.image_url ? 
-                            `<img src="${product.image_url}" alt="${utils.sanitizeHTML(product.brand || product.product_name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                             <div class="placeholder-icon" style="display: none;"><i class="fas fa-shopping-bag"></i></div>` :
-                            `<div class="placeholder-icon"><i class="fas fa-shopping-bag"></i></div>`
-                        }
-                    </div>
-                    <div class="modal-product-info">
-                        <div class="product-category">${utils.sanitizeHTML(product.category || product.category_code || 'Elektronik')}</div>
-                        <h2>${utils.sanitizeHTML(product.brand || product.product_name || 'Produk Tanpa Nama')}</h2>
-                        <div class="product-price" style="font-size: 2rem; margin: 1rem 0;">${utils.formatPrice(price)}</div>
-                        <div class="product-rating" style="margin-bottom: 1rem;">
-                            <div class="stars">${utils.generateStars(rating)}</div>
-                            <span class="rating-text">${rating.toFixed(1)} dari 5 (${utils.formatNumber(reviewCount)} ulasan)</span>
-                        </div>
-                        <div class="product-description">
-                            <p>${product.description || 'Deskripsi produk tidak tersedia. Produk ini adalah bagian dari katalog e-commerce yang menampilkan berbagai pilihan barang berkualitas dengan harga terjangkau.'}</p>
-                        </div>
-                        <div class="product-meta" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f0f0f0;">
-                            <p><strong>ID Produk:</strong> ${product.id || product.product_id || 'N/A'}</p>
-                            <p><strong>Event Type:</strong> ${product.event_type || 'view'}</p>
-                            ${product.user_id ? `<p><strong>User ID:</strong> ${product.user_id}</p>` : ''}
-                        </div>
-                    </div>
-                </div>
-                
-                ${recommendations.length > 0 ? `
-                    <div class="modal-recommendations" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #f0f0f0;">
-                        <h3 style="margin-bottom: 1rem;">Produk Rekomendasi</h3>
-                        <div class="recommendations-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
-                            ${recommendations.slice(0, 4).map(rec => `
-                                <div class="recommendation-item" style="border: 1px solid #f0f0f0; border-radius: 8px; padding: 1rem; text-align: center; cursor: pointer;" data-product-id="${rec.id || rec.product_id}">
-                                    <div class="rec-image" style="width: 60px; height: 60px; background: #f8f9fa; border-radius: 8px; margin: 0 auto 0.5rem; display: flex; align-items: center; justify-content: center;">
-                                        <i class="fas fa-shopping-bag" style="color: #ccc;"></i>
-                                    </div>
-                                    <div class="rec-title" style="font-size: 0.9rem; font-weight: 500; margin-bottom: 0.5rem;">${utils.sanitizeHTML(rec.brand || rec.product_name || 'Produk')}</div>
-                                    <div class="rec-price" style="color: #667eea; font-weight: 600;">${utils.formatPrice(rec.price || Math.floor(Math.random() * 500000) + 25000)}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-
-        // Add click handlers for recommendations
-        modalBody.querySelectorAll('.recommendation-item').forEach(item => {
-            item.addEventListener('click', async () => {
-                const productId = item.dataset.productId;
-                const recProduct = recommendations.find(r => (r.id || r.product_id) === productId);
-                if (recProduct) {
-                    await this.showProductModal(recProduct);
-                }
-            });
-        });
-    },
-
-    hideModal() {
-        elements.modalOverlay.style.display = 'none';
-    },
-
-    showSuggestions(suggestions) {
-        const container = elements.searchSuggestions;
-        
-        if (suggestions.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-
-        container.innerHTML = suggestions.map(suggestion => 
-            `<div class="suggestion-item" data-suggestion="${utils.sanitizeHTML(suggestion)}">${utils.sanitizeHTML(suggestion)}</div>`
-        ).join('');
-        
-        container.style.display = 'block';
-
-        // Add click handlers
-        container.querySelectorAll('.suggestion-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const suggestion = item.dataset.suggestion;
-                elements.searchInput.value = suggestion;
-                container.style.display = 'none';
-                search.performSearch(suggestion);
-            });
-        });
-    },
-
-    hideSuggestions() {
-        elements.searchSuggestions.style.display = 'none';
-    }
-};
-
-// Search functionality
-const search = {
-    async performSearch(query, page = 1, sort = 'relevance') {
-        if (!query.trim()) {
-            utils.showNotification('Silakan masukkan kata kunci pencarian', 'error');
-            return;
-        }
-
-        // Update global state
-        currentQuery = query.trim();
-        currentPage = page;
-        currentSort = sort;
-
-        // Add to search history
-        this.addToHistory(currentQuery);
-
-        // Show loading
-        ui.showLoading();
-
-        // Scroll to results section
-        if (page === 1) {
-            document.querySelector('.hero').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        try {
-            const data = await api.search(currentQuery, currentPage, currentSort);
-            
-            if (data.success) {
-                currentProducts = data.products || [];
-                totalPages = Math.ceil((data.total || 0) / CONFIG.ITEMS_PER_PAGE);
-
-                if (currentProducts.length === 0) {
-                    ui.showEmpty(currentQuery);
-                } else {
-                    ui.showResults();
-                    ui.updateResultsHeader(currentQuery, data.total || 0, currentPage, totalPages);
-                    ui.renderProducts(currentProducts);
-                    ui.renderPagination(currentPage, totalPages);
-                }
-            } else {
-                throw new Error(data.message || 'Search failed');
-            }
-        } catch (error) {
-            console.error('Search error:', error);
-            ui.showError('Gagal melakukan pencarian. Silakan periksa koneksi internet dan coba lagi.');
-            utils.showNotification('Pencarian gagal. Silakan coba lagi.', 'error');
-        }
-    },
-
-    addToHistory(query) {
-        // Remove if already exists
-        searchHistory = searchHistory.filter(item => item !== query);
-        // Add to beginning
-        searchHistory.unshift(query);
-        // Keep only last 10 searches
-        searchHistory = searchHistory.slice(0, 10);
-        // Save to localStorage
-        localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
-    },
-
-    async getSuggestions(query) {
-        if (!query.trim() || query.length < 2) {
-            ui.hideSuggestions();
-            return;
-        }
-
-        try {
-            // Combine API suggestions with search history
-            const apiData = await api.getSuggestions(query);
-            const apiSuggestions = apiData.suggestions || [];
-            
-            // Filter search history based on query
-            const historySuggestions = searchHistory.filter(item => 
-                item.toLowerCase().includes(query.toLowerCase())
-            );
-
-            // Combine and deduplicate
-            const allSuggestions = [...new Set([...apiSuggestions, ...historySuggestions])];
-            const limitedSuggestions = allSuggestions.slice(0, CONFIG.MAX_SUGGESTIONS);
-
-            ui.showSuggestions(limitedSuggestions);
-        } catch (error) {
-            console.error('Suggestions error:', error);
-            // Fallback to search history only
-            const historySuggestions = searchHistory.filter(item => 
-                item.toLowerCase().includes(query.toLowerCase())
-            ).slice(0, CONFIG.MAX_SUGGESTIONS);
-            ui.showSuggestions(historySuggestions);
-        }
-    }
-};
-
-// Event Listeners
-const initEventListeners = () => {
-    // Search input events
-    elements.searchInput.addEventListener('input', utils.debounce((e) => {
-        const query = e.target.value.trim();
-        search.getSuggestions(query);
-    }, CONFIG.DEBOUNCE_DELAY));
-
-    elements.searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            ui.hideSuggestions();
-            search.performSearch(elements.searchInput.value);
-        }
-    });
-
-    // Search button
-    elements.searchBtn.addEventListener('click', () => {
-        ui.hideSuggestions();
-        search.performSearch(elements.searchInput.value);
-    });
-
-    // Quick tags
-    elements.quickTags.forEach(tag => {
-        tag.addEventListener('click', () => {
-            const searchTerm = tag.dataset.search;
-            elements.searchInput.value = searchTerm;
-            search.performSearch(searchTerm);
-        });
-    });
-
-    // Sort select
-    elements.sortSelect.addEventListener('change', (e) => {
-        if (currentQuery) {
-            search.performSearch(currentQuery, 1, e.target.value);
-        }
-    });
-
-    // Modal close
-    elements.modalClose.addEventListener('click', ui.hideModal);
-    elements.modalOverlay.addEventListener('click', (e) => {
-        if (e.target === elements.modalOverlay) {
-            ui.hideModal();
-        }
-    });
-
-    // Retry button
-    elements.retryBtn.addEventListener('click', () => {
-        if (currentQuery) {
-            search.performSearch(currentQuery, currentPage, currentSort);
-        }
-    });
-
-    // Click outside to hide suggestions
-    document.addEventListener('click', (e) => {
-        if (!elements.searchInput.contains(e.target) && !elements.searchSuggestions.contains(e.target)) {
-            ui.hideSuggestions();
-        }
-    });
-
-    // Escape key to close modal and suggestions
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            ui.hideModal();
-            ui.hideSuggestions();
-        }
-    });
-
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const categoryFilter = document.getElementById('categoryFilter');
+const brandFilter = document.getElementById('brandFilter');
+const priceFilter = document.getElementById('priceFilter');
+const productsGrid = document.getElementById('productsGrid');
+const loading = document.getElementById('loading');
+const pagination = document.getElementById('pagination');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const pageInfo = document.getElementById('pageInfo');
+const productModal = document.getElementById('productModal');
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
+    setupEventListeners();
+    loadInitialData();
+});
+
+// Initialize application
+function initializeApp() {
     // Smooth scrolling for navigation
     document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
+        link.addEventListener('click', function(e) {
             e.preventDefault();
-            const targetId = link.getAttribute('href');
-            if (targetId.startsWith('#')) {
-                const targetElement = document.querySelector(targetId);
-                if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth' });
-                }
-            }
+            const targetId = this.getAttribute('href').substring(1);
+            scrollToSection(targetId);
+            
+            // Update active navigation
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
         });
     });
-};
-
-// Demo data for testing when API is not available
-const demoData = {
-    generateDemoProducts: (query, count = 12) => {
-        const categories = ['smartphone', 'laptop', 'headphone', 'mouse', 'keyboard', 'tablet', 'speaker', 'camera'];
-        const brands = ['Samsung', 'Apple', 'Xiaomi', 'Asus', 'Dell', 'HP', 'Logitech', 'Sony', 'Canon', 'JBL'];
-        const events = ['view', 'cart', 'purchase'];
-        
-        return Array.from({ length: count }, (_, i) => ({
-            id: `demo_${Date.now()}_${i}`,
-            product_id: `prod_${i + 1}`,
-            product_name: `${brands[Math.floor(Math.random() * brands.length)]} ${query} ${i + 1}`,
-            brand: brands[Math.floor(Math.random() * brands.length)],
-            category: categories[Math.floor(Math.random() * categories.length)],
-            category_code: categories[Math.floor(Math.random() * categories.length)],
-            price: Math.floor(Math.random() * 2000000) + 100000,
-            rating: Math.random() * 2 + 3,
-            review_count: Math.floor(Math.random() * 1000) + 10,
-            event_type: events[Math.floor(Math.random() * events.length)],
-            user_id: `user_${Math.floor(Math.random() * 1000)}`,
-            description: `Produk ${query} berkualitas tinggi dengan fitur terdepan dan desain modern yang cocok untuk kebutuhan sehari-hari.`
-        }));
-    },
-
-    async searchDemo(query, page = 1) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const products = this.generateDemoProducts(query, CONFIG.ITEMS_PER_PAGE);
-        const total = Math.floor(Math.random() * 200) + 50;
-        
-        return {
-            success: true,
-            products: products,
-            total: total,
-            page: page,
-            per_page: CONFIG.ITEMS_PER_PAGE
-        };
-    }
-};
-
-// Fallback to demo data when API is not available
-const searchWithFallback = async (query, page = 1, sort = 'relevance') => {
-    try {
-        return await api.search(query, page, sort);
-    } catch (error) {
-        console.warn('API not available, using demo data:', error);
-        utils.showNotification('Menggunakan data demo - API tidak tersedia', 'info');
-        return await demoData.searchDemo(query, page);
-    }
-};
-
-// Override API search with fallback
-api.search = searchWithFallback;
-
-// Initialize app
-const init = () => {
-    console.log('E-commerce Recommendation System initialized');
-    initEventListeners();
-    
-    // Check if there's a search query in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const query = urlParams.get('q');
-    if (query) {
-        elements.searchInput.value = query;
-        search.performSearch(query);
-    }
-    
-    // Add some example searches to history if empty
-    if (searchHistory.length === 0) {
-        searchHistory = ['smartphone', 'laptop', 'headphone', 'mouse gaming', 'keyboard mechanical'];
-        localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
-    }
-};
-
-// Wait for DOM to be ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
 }
+
+// Setup event listeners
+function setupEventListeners() {
+    // Search functionality
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+    
+    // Filter functionality
+    categoryFilter.addEventListener('change', applyFilters);
+    brandFilter.addEventListener('change', applyFilters);
+    priceFilter.addEventListener('change', applyFilters);
+    
+    // Pagination
+    prevBtn.addEventListener('click', () => changePage(currentPage - 1));
+    nextBtn.addEventListener('click', () => changePage(currentPage + 1));
+    
+    // Modal close
+    window.addEventListener('click', function(e) {
+        if (e.target === productModal) {
+            closeModal();
+        }
+    });
+}
+
+// Load initial data
+async function loadInitialData() {
+    try {
+        showLoading(true);
+        
+        // Load products
+        await loadProducts();
+        
+        // Load filter options
+        await loadFilterOptions();
+        
+        // Load analytics
+        await loadAllAnalytics();
+        
+        showLoading(false);
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+        showError('Failed to load data. Please try again.');
+        showLoading(false);
+    }
+}
+
+// Load products from API
+async function loadProducts() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch products');
+        }
+        
+        const data = await response.json();
+        allProducts = data.products || [];
+        filteredProducts = [...allProducts];
+        
+        renderProducts();
+        updatePagination();
+    } catch (error) {
+        console.error('Error loading products:', error);
+        // Use mock data for demonstration
+        loadMockProducts();
+    }
+}
+
+// Load mock products for demonstration
+function loadMockProducts() {
+    allProducts = [
+        {
+            product_id: '1001',
+            category_code: 'construction.tools.light',
+            brand: 'apple',
+            price: 1302.48,
+            view_count: 1250,
+            cart_count: 95,
+            purchase_count: 43
+        },
+        {
+            product_id: '1002',
+            category_code: 'appliances.personal.massager',
+            brand: 'bosch',
+            price: 313.52,
+            view_count: 890,
+            cart_count: 67,
+            purchase_count: 23
+        },
+        {
+            product_id: '1003',
+            category_code: 'apparel.trousers',
+            brand: 'nika',
+            price: 101.68,
+            view_count: 2100,
+            cart_count: 156,
+            purchase_count: 89
+        }
+    ];
+    
+    filteredProducts = [...allProducts];
+    renderProducts();
+    updatePagination();
+}
+
+// Load filter options
+async function loadFilterOptions() {
+    try {
+        // Extract unique categories and brands from products
+        const categories = [...new Set(allProducts.map(p => p.category_code))].filter(Boolean);
+        const brands = [...new Set(allProducts.map(p => p.brand))].filter(Boolean);
+        
+        // Populate category filter
+        categoryFilter.innerHTML = '<option value="">All Categories</option>';
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = formatCategoryName(category);
+            categoryFilter.appendChild(option);
+        });
+        
+        // Populate brand filter
+        brandFilter.innerHTML = '<option value="">All Brands</option>';
+        brands.forEach(brand => {
+            const option = document.createElement('option');
+            option.value = brand;
+            option.textContent = capitalizeFirst(brand);
+            brandFilter.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading filter options:', error);
+    }
+}
+
+// Perform search
+function performSearch() {
+    currentFilters.search = searchInput.value.trim();
+    applyFilters();
+}
+
+// Apply filters
+function applyFilters() {
+    currentFilters.category = categoryFilter.value;
+    currentFilters.brand = brandFilter.value;
+    currentFilters.priceRange = priceFilter.value;
+    
+    filteredProducts = allProducts.filter(product => {
+        // Search filter
+        if (currentFilters.search) {
+            const searchTerm = currentFilters.search.toLowerCase();
+            const productText = `${product.category_code} ${product.brand}`.toLowerCase();
+            if (!productText.includes(searchTerm)) {
+                return false;
+            }
+        }
+        
+        // Category filter
+        if (currentFilters.category && product.category_code !== currentFilters.category) {
+            return false;
+        }
+        
+        // Brand filter
+        if (currentFilters.brand && product.brand !== currentFilters.brand) {
+            return false;
+        }
+        
+        // Price filter
+        if (currentFilters.priceRange) {
+            const price = parseFloat(product.price);
+            const [min, max] = currentFilters.priceRange.split('-').map(p => 
+                p === '' ? Infinity : parseFloat(p.replace('+', ''))
+            );
+            if (price < min || (max !== Infinity && price > max)) {
+                return false;
+            }
+        }
+        
+        return true;
+    });
+    
+    currentPage = 1;
+    renderProducts();
+    updatePagination();
+}
+
+// Render products
+function renderProducts() {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const productsToShow = filteredProducts.slice(startIndex, endIndex);
+    
+    if (productsToShow.length === 0) {
+        productsGrid.innerHTML = `
+            <div class="no-products">
+                <i class="fas fa-search" style="font-size: 3rem; color: #ccc; margin-bottom: 1rem;"></i>
+                <h3>No products found</h3>
+                <p>Try adjusting your search or filters</p>
+            </div>
+        `;
+        return;
+    }
+    
+    productsGrid.innerHTML = productsToShow.map(product => `
+        <div class="product-card" onclick="showProductDetails('${product.product_id}')">
+            <div class="product-image">
+                <i class="fas fa-box"></i>
+            </div>
+            <div class="product-info">
+                <div class="product-title">Product ${product.product_id}</div>
+                <div class="product-category">${formatCategoryName(product.category_code)}</div>
+                <div class="product-brand">Brand: ${capitalizeFirst(product.brand)}</div>
+                <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
+                <div class="product-stats">
+                    <div class="stat">
+                        <span class="stat-value">${product.view_count || 0}</span>
+                        <span class="stat-label">Views</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">${product.cart_count || 0}</span>
+                        <span class="stat-label">Cart</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">${product.purchase_count || 0}</span>
+                        <span class="stat-label">Purchases</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Update pagination
+function updatePagination() {
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    
+    if (totalPages <= 1) {
+        pagination.classList.add('hidden');
+        return;
+    }
+    
+    pagination.classList.remove('hidden');
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    
+    prevBtn.disabled = currentPage === 1;
+    nextBtn.disabled = currentPage === totalPages;
+}
+
+// Change page
+function changePage(newPage) {
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    
+    if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderProducts();
+        updatePagination();
+        scrollToSection('products');
+    }
+}
+
+// Show product details modal
+function showProductDetails(productId) {
+    const product = allProducts.find(p => p.product_id === productId);
+    if (!product) return;
+    
+    const modalBody = document.getElementById('modalBody');
+    modalBody.innerHTML = `
+        <div class="product-details">
+            <div class="product-image-large">
+                <i class="fas fa-box" style="font-size: 4rem; color: #667eea;"></i>
+            </div>
+            <h2>Product ${product.product_id}</h2>
+            <div class="product-detail-grid">
+                <div class="detail-item">
+                    <strong>Category:</strong>
+                    <span>${formatCategoryName(product.category_code)}</span>
+                </div>
+                <div class="detail-item">
+                    <strong>Brand:</strong>
+                    <span>${capitalizeFirst(product.brand)}</span>
+                </div>
+                <div class="detail-item">
+                    <strong>Price:</strong>
+                    <span class="price-highlight">${parseFloat(product.price).toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="analytics-summary">
+                <h3>Product Analytics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-eye"></i>
+                        <div class="stat-number">${product.view_count || 0}</div>
+                        <div class="stat-label">Total Views</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-shopping-cart"></i>
+                        <div class="stat-number">${product.cart_count || 0}</div>
+                        <div class="stat-label">Added to Cart</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-credit-card"></i>
+                        <div class="stat-number">${product.purchase_count || 0}</div>
+                        <div class="stat-label">Purchases</div>
+                    </div>
+                </div>
+                <div class="recommendation-score">
+                    <h4>AI Recommendation Score</h4>
+                    <div class="score-bar">
+                        <div class="score-fill" style="width: ${calculateRecommendationScore(product)}%"></div>
+                    </div>
+                    <span class="score-text">${calculateRecommendationScore(product)}% Match</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    productModal.classList.remove('hidden');
+}
+
+// Close modal
+function closeModal() {
+    productModal.classList.add('hidden');
+}
+
+// Load all analytics
+async function loadAllAnalytics() {
+    await Promise.all([
+        loadTopProducts('view'),
+        loadTopProducts('cart'),
+        loadTopProducts('purchase')
+    ]);
+}
+
+// Load top products for analytics
+async function loadTopProducts(type) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/analytics/top-${type}`);
+        let topProducts;
+        
+        if (response.ok) {
+            const data = await response.json();
+            topProducts = data.products || [];
+        } else {
+            // Use mock data
+            topProducts = getMockTopProducts(type);
+        }
+        
+        renderTopProducts(type, topProducts);
+    } catch (error) {
+        console.error(`Error loading top ${type} products:`, error);
+        renderTopProducts(type, getMockTopProducts(type));
+    }
+}
+
+// Get mock top products
+function getMockTopProducts(type) {
+    const sortedProducts = [...allProducts].sort((a, b) => {
+        const aCount = a[`${type}_count`] || 0;
+        const bCount = b[`${type}_count`] || 0;
+        return bCount - aCount;
+    });
+    
+    return sortedProducts.slice(0, 5);
+}
+
+// Render top products
+function renderTopProducts(type, products) {
+    const containerId = type === 'view' ? 'topViewed' : 
+                       type === 'cart' ? 'topCart' : 'topPurchased';
+    const container = document.getElementById(containerId);
+    
+    if (!products || products.length === 0) {
+        container.innerHTML = '<p class="no-data">No data available</p>';
+        return;
+    }
+    
+    container.innerHTML = products.map((product, index) => `
+        <div class="top-product-item" onclick="showProductDetails('${product.product_id}')">
+            <div class="product-rank">${index + 1}</div>
+            <div class="top-product-info">
+                <div class="top-product-name">Product ${product.product_id}</div>
+                <div class="top-product-category">${formatCategoryName(product.category_code)}</div>
+            </div>
+            <div class="top-product-count">${product[`${type}_count`] || 0}</div>
+        </div>
+    `).join('');
+}
+
+// Utility Functions
+function showLoading(show) {
+    if (show) {
+        loading.classList.remove('hidden');
+        productsGrid.classList.add('hidden');
+    } else {
+        loading.classList.add('hidden');
+        productsGrid.classList.remove('hidden');
+    }
+}
+
+function showError(message) {
+    productsGrid.innerHTML = `
+        <div class="error-message">
+            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ff6b6b; margin-bottom: 1rem;"></i>
+            <h3>Error</h3>
+            <p>${message}</p>
+            <button onclick="loadInitialData()" class="retry-btn">Retry</button>
+        </div>
+    `;
+}
+
+function scrollToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+function formatCategoryName(categoryCode) {
+    if (!categoryCode) return 'Unknown Category';
+    
+    return categoryCode
+        .split('.')
+        .map(word => capitalizeFirst(word))
+        .join(' > ');
+}
+
+function capitalizeFirst(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function calculateRecommendationScore(product) {
+    const views = product.view_count || 0;
+    const carts = product.cart_count || 0;
+    const purchases = product.purchase_count || 0;
+    
+    // Simple scoring algorithm
+    const score = Math.min(100, Math.round(
+        (views * 0.1) + (carts * 2) + (purchases * 5)
+    ));
+    
+    return Math.max(10, score); // Minimum 10% to make it look realistic
+}
+
+// Search suggestion functionality
+let searchTimeout;
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        if (this.value.length > 2) {
+            showSearchSuggestions(this.value);
+        } else {
+            hideSearchSuggestions();
+        }
+    }, 300);
+});
+
+function showSearchSuggestions(query) {
+    const suggestions = allProducts
+        .filter(product => {
+            const text = `${product.category_code} ${product.brand}`.toLowerCase();
+            return text.includes(query.toLowerCase());
+        })
+        .slice(0, 5);
+    
+    // Implementation for search suggestions dropdown
+    // This would require additional HTML and CSS
+}
+
+function hideSearchSuggestions() {
+    // Hide suggestions dropdown
+}
+
+// Real-time updates (if WebSocket is available)
+function setupRealTimeUpdates() {
+    // This would connect to a WebSocket for real-time analytics updates
+    try {
+        const ws = new WebSocket('ws://localhost:8080');
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.type === 'analytics_update') {
+                loadAllAnalytics();
+            }
+        };
+        
+        ws.onerror = function(error) {
+            console.log('WebSocket connection failed:', error);
+        };
+    } catch (error) {
+        console.log('WebSocket not available');
+    }
+}
+
+// Initialize real-time updates
+setTimeout(setupRealTimeUpdates, 2000);
+
+// Auto-refresh analytics every 30 seconds
+setInterval(() => {
+    loadAllAnalytics();
+}, 30000);
+
+// Handle window resize for responsive design
+window.addEventListener('resize', function() {
+    // Adjust layout if needed
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+        itemsPerPage = 6;
+    } else {
+        itemsPerPage = 12;
+    }
+    
+    // Re-render current page
+    renderProducts();
+    updatePagination();
+});
+
+// Add smooth scroll behavior to all internal links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Add loading animation to buttons
+function addButtonLoading(button, originalText) {
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+    
+    return function() {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    };
+}
+
+// Enhanced error handling
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    showError('An unexpected error occurred. Please refresh the page.');
+});
+
+// Performance monitoring
+let pageLoadTime = performance.now();
+window.addEventListener('load', function() {
+    pageLoadTime = performance.now() - pageLoadTime;
+    console.log(`Page loaded in ${pageLoadTime.toFixed(2)}ms`);
+});

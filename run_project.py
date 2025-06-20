@@ -118,6 +118,21 @@ class ProjectRunner:
         self.log("Waiting for services to be ready...")
         time.sleep(30)  # Wait for services to start
         
+         # ===> Tambahkan inisialisasi bucket MinIO di sini <===
+        api_path = Path(__file__).parent / 'api_server'
+        sys.path.append(str(api_path))
+
+        from minio_client import MinIOClient
+        mc = MinIOClient(
+            endpoint=os.getenv('MINIO_ENDPOINT', 'localhost:9000'),
+            access_key=os.getenv('MINIO_ACCESS_KEY', 'minioadmin'),
+            secret_key=os.getenv('MINIO_SECRET_KEY', 'minioadmin'),
+            secure=False
+        )
+        for bucket in ["bronze", "silver", "gold", "checkpoints"]:
+            mc.create_bucket(bucket)
+        self.log("MinIO buckets ensured: bronze, silver, gold, checkpoints")
+
         # Check if services are running
         result = subprocess.run("docker-compose ps", shell=True, capture_output=True, text=True)
         self.log("Docker services status:")
