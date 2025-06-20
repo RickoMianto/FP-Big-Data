@@ -119,6 +119,7 @@ class ProjectRunner:
         time.sleep(30)  # Wait for services to start
         
          # ===> Tambahkan inisialisasi bucket MinIO di sini <===
+        from minio_client import MinIOClient
         mc = MinIOClient(
             endpoint=os.getenv('MINIO_ENDPOINT', 'localhost:9000'),
             access_key=os.getenv('MINIO_ACCESS_KEY', 'minioadmin'),

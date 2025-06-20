@@ -9,30 +9,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MinIOClient:
-    def __init__(self):
-        self.client = None
-        self.setup_client()
-    
-    def setup_client(self):
-        """Initialize MinIO client"""
-        try:
-            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
-            minio_access_key = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
-            minio_secret_key = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
-            minio_secure = os.getenv('MINIO_SECURE', 'False').lower() == 'true'
-            
-            self.client = Minio(
-                minio_endpoint,
-                access_key=minio_access_key,
-                secret_key=minio_secret_key,
-                secure=minio_secure
-            )
-            
-            logger.info(f"MinIO client initialized for endpoint: {minio_endpoint}")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize MinIO client: {e}")
-            raise
+    def __init__(self, endpoint='localhost:9000', access_key='minioadmin', secret_key='minioadmin', secure=False):
+        self.client = Minio(
+            endpoint=endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+            secure=secure
+        )
+        logger.info(f"MinIO client initialized for endpoint: {endpoint}")
     
     def bucket_exists(self, bucket_name):
         """Check if bucket exists"""
