@@ -141,7 +141,7 @@ class ProjectRunner:
         """Menjalankan data pipeline secara berurutan"""
         self.log("Starting data pipeline...")
         
-        # Step 1: Start Structured Data Producer
+        # Step 1a: Start Structured Data Producer
         self.log("Step 1a: Running Structured Kafka Producer (ecommerce-events)...")
         producer_a = self.run_command(
             "python3 kafka_producer/producer.py",
@@ -161,21 +161,28 @@ class ProjectRunner:
 
         self.log("Both producers are running in background.")
         time.sleep(10)
-        
-        # Step 2: Run Spark Jobs
+
+        # Step 2: Run Kafka to Bronze
+        self.log("Step 2: Running kafka_to_bronze.py to write events to MinIO...")
+        if not self.run_command("python3 spark_processor/jobs/kafka_to_bronze.py"):
+            self.log("Failed to run kafka_to_bronze.py", "ERROR")
+            return False
+        time.sleep(5)
+
+        # Step 3: Run Spark Jobs
         spark_jobs = [
             'spark_processor/jobs/bronze_to_silver.py',
             'spark_processor/jobs/silver_to_gold.py',
             'spark_processor/jobs/train_model.py'
         ]
-        
-        for i, job in enumerate(spark_jobs, 2):
+
+        for i, job in enumerate(spark_jobs, 3):  # start from step 3
             self.log(f"Step {i}: Running {job}...")
             if not self.run_command(f"python3 {job}"):
                 self.log(f"Failed to run {job}", "ERROR")
                 return False
-            time.sleep(5)  # Wait between jobs
-            
+            time.sleep(5)
+
         return True
         
     def start_api_server(self):
