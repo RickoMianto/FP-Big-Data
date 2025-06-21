@@ -20,11 +20,20 @@ class MLModelTrainer:
         """Initialize Spark session with ML support"""
         try:
             self.spark = SparkSession.builder \
-                .appName("EcommerceMLTraining") \
+                .appName("EcommerceBronzeToSilver") \
+                .config("spark.jars.packages", 
+                       "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,"
+                       "org.apache.hadoop:hadoop-aws:3.3.4,"
+                       "com.amazonaws:aws-java-sdk-bundle:1.12.376") \
+                .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000") \
+                .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
+                .config("spark.hadoop.fs.s3a.secret.key", "minioadmin") \
+                .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+                .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
                 .config("spark.sql.adaptive.enabled", "true") \
                 .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-                .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
-                .config("spark.sql.execution.arrow.pyspark.enabled", "true") \
+                .config("spark.sql.adaptive.enabled", "true") \
+                .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
                 .getOrCreate()
             
             self.spark.sparkContext.setLogLevel("WARN")
@@ -73,8 +82,18 @@ class MLModelTrainer:
             product_indexer = StringIndexer(inputCol="product_id", outputCol="product_index")
             
             # Index users and products
-            indexed_data = user_indexer.fit(user_item_interactions).transform(user_item_interactions)
-            indexed_data = product_indexer.fit(indexed_data).transform(indexed_data)
+            user_indexer_model = user_indexer.fit(user_item_interactions)
+            product_indexer_model = product_indexer.fit(user_item_interactions)
+
+            # Pastikan kolom tidak bertabrakan
+            indexed_data = user_indexer_model.transform(user_item_interactions)
+
+            # Cek dan hapus kolom `product_index` jika sudah ada
+            if "product_index" in indexed_data.columns:
+                indexed_data = indexed_data.drop("product_index")
+
+            indexed_data = product_indexer_model.transform(indexed_data)
+
             
             # Select final columns for ALS
             als_data = indexed_data.select(
@@ -83,7 +102,7 @@ class MLModelTrainer:
                 col("final_rating").cast("float").alias("rating")
             )
             
-            return als_data, user_indexer.fit(user_item_interactions), product_indexer.fit(indexed_data)
+            return als_data, user_indexer_model, product_indexer_model
             
         except Exception as e:
             logger.error(f"Error preparing collaborative filtering data: {e}")

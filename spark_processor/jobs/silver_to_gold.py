@@ -16,7 +16,16 @@ class SilverToGoldProcessor:
         """Initialize Spark session"""
         try:
             self.spark = SparkSession.builder \
-                .appName("EcommerceSilverToGold") \
+.appName("EcommerceBronzeToSilver") \
+                .config("spark.jars.packages", 
+                       "org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,"
+                       "org.apache.hadoop:hadoop-aws:3.3.4,"
+                       "com.amazonaws:aws-java-sdk-bundle:1.12.376") \
+                .config("spark.hadoop.fs.s3a.endpoint", "http://localhost:9000") \
+                .config("spark.hadoop.fs.s3a.access.key", "minioadmin") \
+                .config("spark.hadoop.fs.s3a.secret.key", "minioadmin") \
+                .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+                .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
                 .config("spark.sql.adaptive.enabled", "true") \
                 .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
                 .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
