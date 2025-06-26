@@ -52,4 +52,5 @@ e-commerce-recommender/
 
 ## Flowchart 
 
-![WhatsApp Image 2025-06-20 at 14 08 42_9969aa66](https://github.com/user-attachments/assets/b33ae50a-6c20-4cd0-9b51-80b809872088)
+![image](https://github.com/user-attachments/assets/29a8b968-2efb-461c-b1d9-34e6d25d3bae)
+
