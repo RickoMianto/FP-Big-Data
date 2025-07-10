@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import logging
 from minio_client import MinIOClient
+import numpy as np
 from datetime import datetime
 import os
 
@@ -45,7 +46,9 @@ class EcommerceAPI:
                 return cached_data
             
             # Load from MinIO
-            data = self.minio_client.read_parquet(bucket, object_name)
+            data = self.minio_client.read_parquet_folder(bucket, object_name)
+
+            # data = self.minio_client.read_parquet(bucket, object_name)
             
             # Cache the data
             self.set_cached_data(cache_key, data)
@@ -57,9 +60,9 @@ class EcommerceAPI:
             return None
     
     def get_product_statistics(self):
-        """Get product statistics from Gold layer"""
+        """Get product statistics from models layer"""
         try:
-            data = self.load_parquet_data("gold", "product_statistics")
+            data = self.load_parquet_data("models", "product_statistics")
             if data is not None:
                 return data.to_dict('records')
             return []
@@ -70,7 +73,7 @@ class EcommerceAPI:
     def get_top_products(self, metric="most_viewed", limit=10):
         """Get top products by specific metric"""
         try:
-            data = self.load_parquet_data("gold", "product_rankings")
+            data = self.load_parquet_data("models", "product_rankings")
             if data is not None:
                 filtered_data = data[data['rank_type'] == metric].head(limit)
                 return filtered_data.to_dict('records')
@@ -82,7 +85,7 @@ class EcommerceAPI:
     def search_products(self, query, filters=None, limit=20):
         """Search products with optional filters"""
         try:
-            data = self.load_parquet_data("gold", "recommendation_features")
+            data = self.load_parquet_data("models", "recommendation_features")
             if data is None:
                 return []
             
@@ -124,7 +127,7 @@ class EcommerceAPI:
     def get_product_details(self, product_id):
         """Get detailed information about a specific product"""
         try:
-            data = self.load_parquet_data("gold", "product_statistics")
+            data = self.load_parquet_data("models", "product_statistics")
             if data is not None:
                 product = data[data['product_id'] == product_id]
                 if not product.empty:
@@ -137,7 +140,7 @@ class EcommerceAPI:
     def get_similar_products(self, product_id, limit=5):
         """Get similar products for a given product"""
         try:
-            data = self.load_parquet_data("gold", "similar_products")
+            data = self.load_parquet_data("models", "similar_products")
             if data is not None:
                 similar = data[data['product_id'] == product_id].sort_values('similarity_score', ascending=False)
                 return similar.head(limit).to_dict('records')
@@ -149,7 +152,7 @@ class EcommerceAPI:
     def get_recommendations_for_user(self, user_id, limit=10):
         """Get recommendations for a specific user"""
         try:
-            data = self.load_parquet_data("gold", "user_recommendations")
+            data = self.load_parquet_data("models", "user_recommendations")
             if data is not None:
                 user_recs = data[data['user'] == int(user_id)]
                 if not user_recs.empty:
@@ -162,7 +165,7 @@ class EcommerceAPI:
     def get_category_statistics(self):
         """Get category-level statistics"""
         try:
-            data = self.load_parquet_data("gold", "category_statistics")
+            data = self.load_parquet_data("models", "category_statistics")
             if data is not None:
                 return data.to_dict('records')
             return []
@@ -173,14 +176,27 @@ class EcommerceAPI:
     def get_brand_statistics(self):
         """Get brand-level statistics"""
         try:
-            data = self.load_parquet_data("gold", "brand_statistics")
+            data = self.load_parquet_data("models", "brand_statistics")
             if data is not None:
                 return data.to_dict('records')
             return []
         except Exception as e:
             logger.error(f"Error getting brand statistics: {e}")
             return []
+        
+    def get_user_recommendations_data(self):
+        return self.load_parquet_data("models", "user_recommendations")
 
+    def get_clustering_model_data(self):
+        dfs = []
+        for sub in ["metadata", "stages"]:
+            df = self.load_parquet_data("models", f"clustering_model/{sub}")
+            if df is not None:
+                df["source"] = sub
+                dfs.append(df)
+        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+
+    
 # Initialize API instance
 api = EcommerceAPI()
 

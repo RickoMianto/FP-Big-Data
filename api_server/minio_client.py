@@ -165,3 +165,27 @@ class MinIOClient:
         except S3Error as e:
             logger.error(f"Error getting object info for {bucket_name}/{object_name}: {e}")
             return None
+    
+    def read_parquet_folder(self, bucket_name, folder_prefix):
+        """Read all parquet files from a folder in MinIO and return a concatenated DataFrame"""
+        try:
+            object_names = self.list_objects(bucket_name, prefix=folder_prefix)
+            parquet_files = [name for name in object_names if name.endswith(".parquet")]
+
+            dataframes = []
+            for object_name in parquet_files:
+                df = self.read_parquet(bucket_name, object_name)
+                if df is not None:
+                    dataframes.append(df)
+
+            if dataframes:
+                combined_df = pd.concat(dataframes, ignore_index=True)
+                logger.info(f"Combined {len(parquet_files)} parquet files into DataFrame with {len(combined_df)} rows")
+                return combined_df
+            else:
+                logger.warning(f"No parquet files found in {bucket_name}/{folder_prefix}")
+                return pd.DataFrame()
+
+        except Exception as e:
+            logger.error(f"Error reading parquet folder {bucket_name}/{folder_prefix}: {e}")
+            return pd.DataFrame()

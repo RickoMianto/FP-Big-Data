@@ -1,167 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Commerce Product Recommender</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-</head>
-<body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="logo">
-                <h1><i class="fas fa-shopping-cart"></i> ShopRecommend</h1>
-            </div>
-            <nav class="nav">
-                <ul>
-                    <li><a href="#home" class="nav-link active">Home</a></li>
-                    <li><a href="#products" class="nav-link">Products</a></li>
-                    <li><a href="#analytics" class="nav-link">Analytics</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>E-Commerce Product Recommender</title>
+		<link rel="stylesheet" href="css/style.css" />
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+	</head>
+	<body>
+		<!-- Header -->
+		<header class="header">
+			<div class="container">
+				<div class="logo">
+					<h1><i class="fas fa-shopping-cart"></i> ShopRecommend</h1>
+				</div>
+				<nav class="nav">
+					<ul>
+						<li><a href="#home" class="nav-link active">Home</a></li>
+						<li><a href="#products" class="nav-link">Products</a></li>
+						<li><a href="#analytics" class="nav-link">Analytics</a></li>
+					</ul>
+				</nav>
+			</div>
+		</header>
 
-    <!-- Main Content -->
-    <main class="main">
-        <!-- Hero Section -->
-        <section id="home" class="hero">
-            <div class="container">
-                <div class="hero-content">
-                    <h2>AI-Powered Product Recommendations</h2>
-                    <p>Discover products tailored to your preferences using advanced big data analytics</p>
-                    <button class="cta-button" onclick="scrollToSection('products')">
-                        Explore Products <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-        </section>
+		<!-- Main Content -->
+		<main class="main">
+			<!-- Hero Section -->
+			<section id="home" class="hero">
+				<div class="container">
+					<div class="hero-content">
+						<h2>AI-Powered Product Recommendations</h2>
+						<p>Discover products tailored to your preferences using advanced big data analytics</p>
+						<button class="cta-button" onclick="scrollToSection('products')">Explore Products <i class="fas fa-arrow-right"></i></button>
+					</div>
+				</div>
+			</section>
 
-        <!-- Search and Filter Section -->
-        <section id="products" class="products-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Product Search & Recommendations</h2>
-                    <p>Find products with AI-powered insights</p>
-                </div>
+			<section id="recommendations" class="recommendations-section">
+				<div class="container">
+					<div class="section-header">
+						<h2>Recommended for You</h2>
+						<p>Enter a user ID to get personalized recommendations</p>
+					</div>
+					<div class="input-group">
+						<input type="text" id="userIdInput" placeholder="Enter User ID" />
+						<button onclick="loadRecommendations()">Get Recommendations</button>
+					</div>
+					<div id="recommendationsGrid" class="products-grid">
+						<!-- Recommendations will appear here -->
+					</div>
+				</div>
+			</section>
 
-                <!-- Search and Filter Controls -->
-                <div class="search-controls">
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="Search products by name or category...">
-                        <button id="searchBtn" class="search-btn">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div>
-                    
-                    <div class="filters">
-                        <select id="categoryFilter" class="filter-select">
-                            <option value="">All Categories</option>
-                        </select>
-                        <select id="brandFilter" class="filter-select">
-                            <option value="">All Brands</option>
-                        </select>
-                        <select id="priceFilter" class="filter-select">
-                            <option value="">Price Range</option>
-                            <option value="0-100">$0 - $100</option>
-                            <option value="100-500">$100 - $500</option>
-                            <option value="500-1000">$500 - $1000</option>
-                            <option value="1000+">$1000+</option>
-                        </select>
-                    </div>
-                </div>
+			<!-- Search and Filter Section -->
+			<section id="products" class="products-section">
+				<div class="container">
+					<div class="section-header">
+						<h2>Product Search & Recommendations</h2>
+						<p>Find products with AI-powered insights</p>
+					</div>
 
-                <!-- Loading Spinner -->
-                <div id="loading" class="loading hidden">
-                    <div class="spinner"></div>
-                    <p>Loading products...</p>
-                </div>
+					<!-- Search and Filter Controls -->
+					<div class="search-controls">
+						<div class="search-box">
+							<input type="text" id="searchInput" placeholder="Search products by name or category..." />
+							<button id="searchBtn" class="search-btn">
+								<i class="fas fa-search"></i>
+							</button>
+						</div>
 
-                <!-- Products Grid -->
-                <div id="productsGrid" class="products-grid">
-                    <!-- Products will be dynamically inserted here -->
-                </div>
+						<div class="filters">
+							<select id="categoryFilter" class="filter-select">
+								<option value="">All Categories</option>
+							</select>
+							<select id="brandFilter" class="filter-select">
+								<option value="">All Brands</option>
+							</select>
+							<select id="priceFilter" class="filter-select">
+								<option value="">Price Range</option>
+								<option value="0-100">$0 - $100</option>
+								<option value="100-500">$100 - $500</option>
+								<option value="500-1000">$500 - $1000</option>
+								<option value="1000+">$1000+</option>
+							</select>
+						</div>
+					</div>
 
-                <!-- Pagination -->
-                <div id="pagination" class="pagination hidden">
-                    <button id="prevBtn" class="pagination-btn">Previous</button>
-                    <span id="pageInfo" class="page-info">Page 1 of 1</span>
-                    <button id="nextBtn" class="pagination-btn">Next</button>
-                </div>
-            </div>
-        </section>
+					<!-- Loading Spinner -->
+					<div id="loading" class="loading hidden">
+						<div class="spinner"></div>
+						<p>Loading products...</p>
+					</div>
 
-        <!-- Analytics Section -->
-        <section id="analytics" class="analytics-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Product Analytics Dashboard</h2>
-                    <p>Real-time insights from user behavior data</p>
-                </div>
+					<!-- Products Grid -->
+					<div id="productsGrid" class="products-grid">
+						<!-- Products will be dynamically inserted here -->
+					</div>
 
-                <div class="analytics-grid">
-                    <!-- Most Viewed Products -->
-                    <div class="analytics-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-eye"></i> Most Viewed Products</h3>
-                            <button class="refresh-btn" onclick="loadTopProducts('view')">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                        <div id="topViewed" class="top-products-list">
-                            <!-- Will be populated dynamically -->
-                        </div>
-                    </div>
+					<!-- Pagination -->
+					<div id="pagination" class="pagination hidden">
+						<button id="prevBtn" class="pagination-btn">Previous</button>
+						<span id="pageInfo" class="page-info">Page 1 of 1</span>
+						<button id="nextBtn" class="pagination-btn">Next</button>
+					</div>
+				</div>
+			</section>
 
-                    <!-- Most Added to Cart -->
-                    <div class="analytics-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-shopping-cart"></i> Most Added to Cart</h3>
-                            <button class="refresh-btn" onclick="loadTopProducts('cart')">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                        <div id="topCart" class="top-products-list">
-                            <!-- Will be populated dynamically -->
-                        </div>
-                    </div>
+			<!-- Analytics Section -->
+			<section id="analytics" class="analytics-section">
+				<div class="container">
+					<div class="section-header">
+						<h2>Product Analytics Dashboard</h2>
+						<p>Real-time insights from user behavior data</p>
+					</div>
 
-                    <!-- Most Purchased -->
-                    <div class="analytics-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-credit-card"></i> Most Purchased</h3>
-                            <button class="refresh-btn" onclick="loadTopProducts('purchase')">
-                                <i class="fas fa-sync-alt"></i>
-                            </button>
-                        </div>
-                        <div id="topPurchased" class="top-products-list">
-                            <!-- Will be populated dynamically -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
+					<div class="analytics-grid">
+						<!-- Most Viewed Products -->
+						<div class="analytics-card">
+							<div class="card-header">
+								<h3><i class="fas fa-eye"></i> Most Viewed Products</h3>
+								<button class="refresh-btn" onclick="loadTopProducts('view')">
+									<i class="fas fa-sync-alt"></i>
+								</button>
+							</div>
+							<div id="topViewed" class="top-products-list">
+								<!-- Will be populated dynamically -->
+							</div>
+						</div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2025 E-Commerce Recommender. Built with Big Data Analytics.</p>
-        </div>
-    </footer>
+						<!-- Most Added to Cart -->
+						<div class="analytics-card">
+							<div class="card-header">
+								<h3><i class="fas fa-shopping-cart"></i> Most Added to Cart</h3>
+								<button class="refresh-btn" onclick="loadTopProducts('cart')">
+									<i class="fas fa-sync-alt"></i>
+								</button>
+							</div>
+							<div id="topCart" class="top-products-list">
+								<!-- Will be populated dynamically -->
+							</div>
+						</div>
 
-    <!-- Product Modal -->
-    <div id="productModal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <div id="modalBody">
-                <!-- Product details will be inserted here -->
-            </div>
-        </div>
-    </div>
+						<!-- Most Purchased -->
+						<div class="analytics-card">
+							<div class="card-header">
+								<h3><i class="fas fa-credit-card"></i> Most Purchased</h3>
+								<button class="refresh-btn" onclick="loadTopProducts('purchase')">
+									<i class="fas fa-sync-alt"></i>
+								</button>
+							</div>
+							<div id="topPurchased" class="top-products-list">
+								<!-- Will be populated dynamically -->
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
 
-    <script src="js/app.js"></script>
-</body>
+		<!-- Footer -->
+		<footer class="footer">
+			<div class="container">
+				<p>&copy; 2025 E-Commerce Recommender. Built with Big Data Analytics.</p>
+			</div>
+		</footer>
+
+		<!-- Product Modal -->
+		<div id="productModal" class="modal hidden">
+			<div class="modal-content">
+				<span class="close" onclick="closeModal()">&times;</span>
+				<div id="modalBody">
+					<!-- Product details will be inserted here -->
+				</div>
+			</div>
+		</div>
+
+		<script src="js/app.js"></script>
+	</body>
 </html>

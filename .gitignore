@@ -1,0 +1,5 @@
+data/ecommerce-events.csv
+frontend/js/images/
+nginx.conf
+__pycache__
+api_server/__pycache__/
